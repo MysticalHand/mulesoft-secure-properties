@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mule Secure Properties</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #5d6675; --border: #d7dce3;
+    --field: #ffffff; --accent: #0a6cdb; --accent-text: #ffffff; --ok: #1a7f37; --err: #c62828;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c; --card: #1d2128; --text: #e6e9ee; --muted: #9aa3b0; --border: #333a45;
+      --field: #161a20; --accent: #4c9bff; --accent-text: #0b1220; --ok: #4ac26b; --err: #ff6b6b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  section { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  input, select { width: 100%; min-width: 0; font: 14px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--text);
+                  background: var(--field); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid label { margin-top: 0; }
+  .row { display: flex; gap: 8px; }
+  .row > input { flex: 1; }
+  button { font: inherit; font-size: 14px; border: 1px solid var(--border); background: var(--field); color: var(--text);
+           border-radius: 6px; padding: 8px 14px; cursor: pointer; white-space: nowrap; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .actions { margin: 10px 0 0; }
+  .status { font-size: 13px; margin-top: 8px; min-height: 18px; color: var(--muted); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .ok { color: var(--ok); }
+  .err { color: var(--err); }
+  code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.95em; }
+  footer { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mule Secure Properties</h1>
+  <p class="sub">Encrypt and decrypt values for Mule's <code>&lt;secure-properties:config&gt;</code>, the same way the runtime does
+    (<code>ALGORITHM/MODE/PKCS5Padding</code>, useRandomIVs=false). Everything runs locally in your browser and nothing is sent anywhere.</p>
+
+  <section>
+    <h2>Key and algorithm</h2>
+    <div class="grid">
+      <div>
+        <label for="alg">Algorithm (<code>algorithm</code>)</label>
+        <select id="alg">
+          <option value="AES" selected>AES (default)</option>
+          <option value="Blowfish">Blowfish</option>
+          <option value="DES">DES</option>
+          <option value="DESede">DESede</option>
+        </select>
+      </div>
+      <div>
+        <label for="mode">Mode (<code>mode</code>)</label>
+        <select id="mode">
+          <option value="CBC" selected>CBC (default)</option>
+          <option value="CFB">CFB</option>
+          <option value="ECB">ECB</option>
+          <option value="OFB">OFB</option>
+        </select>
+      </div>
+    </div>
+    <label for="key">Value of the <code>key</code> property</label>
+    <div class="row">
+      <input id="key" type="password" autocomplete="off" spellcheck="false">
+      <button id="toggleKey" type="button">Show</button>
+    </div>
+    <div id="keyStatus" class="status"></div>
+    <div class="hint">When <code>&lt;secure-properties:config&gt;</code> sets neither <code>algorithm</code> nor <code>mode</code>,
+      Mule uses AES and CBC. The key is used as it is, with no derivation, so its length has to match the algorithm:
+      AES takes 16, 24 or 32 characters, Blowfish 1 to 56, DES 8, DESede 24. With any other length Mule itself fails with
+      <code>The key is invalid, please make sure it's of a supported size</code>.</div>
+  </section>
+
+  <section>
+    <h2>Encrypt</h2>
+    <label for="plain">Value</label>
+    <input id="plain" type="text" autocomplete="off" spellcheck="false">
+    <div class="actions"><button id="encrypt" class="primary" type="button">Encrypt</button></div>
+    <label for="encOut">Result (paste into the yaml as it is, in quotes)</label>
+    <div class="row">
+      <input id="encOut" type="text" readonly>
+      <button id="copyEnc" type="button">Copy</button>
+    </div>
+    <div id="encStatus" class="status"></div>
+  </section>
+
+  <section>
+    <h2>Decrypt</h2>
+    <label for="cipher">Encrypted value</label>
+    <input id="cipher" type="text" autocomplete="off" spellcheck="false"
+           placeholder='![AbC...=]  or a whole yaml line: password: "![...]"'>
+    <div class="actions"><button id="decrypt" class="primary" type="button">Decrypt</button></div>
+    <label for="decOut">Result</label>
+    <div class="row">
+      <input id="decOut" type="text" readonly>
+      <button id="copyDec" type="button">Copy</button>
+    </div>
+    <div id="decStatus" class="status"></div>
+  </section>
+
+  <footer>Encryption is deterministic: the same value with the same key, algorithm and mode always produces the same
+    <code>![...]</code>. That gives you two ways to check a key: decrypt a value from the file, or encrypt a value you
+    already know and compare the result with the file.</footer>
+</main>
+
+<script>
+// CRYPTO-START
+// Same as org.mule.encryption.jce.JCEEncrypter with "ALG/MODE/PKCS5Padding" and useRandomIVs=false:
+// key = bytes of the key string, IV = first block-size bytes of the key (zero-padded),
+// value = "![" + Base64(ciphertext) + "]".
+const MuleSecure = (() => {
+  const toBase64 = bytes => { let s = ""; for (const b of bytes) s += String.fromCharCode(b); return btoa(s); };
+  const fromBase64 = text => { const s = atob(text); return Uint8Array.from(s, ch => ch.charCodeAt(0)); };
+  const xor = (a, b) => { const out = new Uint8Array(a.length); for (let i = 0; i < a.length; i++) out[i] = a[i] ^ b[i]; return out; };
+
+  // ---------- AES ----------
+  const SBOX = new Uint8Array(256), INV_SBOX = new Uint8Array(256);
+  const rotl8 = (x, s) => ((x << s) | (x >>> (8 - s))) & 0xff;
+  const xtime = b => ((b << 1) ^ (b & 0x80 ? 0x1b : 0)) & 0xff;
+  const mul = (a, b) => { let r = 0; while (b) { if (b & 1) r ^= a; a = xtime(a); b >>= 1; } return r; };
+
+  (() => {
+    let p = 1, q = 1;
+    do {
+      p ^= xtime(p);
+      q ^= q << 1; q ^= q << 2; q ^= q << 4; q &= 0xff;
+      if (q & 0x80) q ^= 0x09;
+      SBOX[p] = q ^ rotl8(q, 1) ^ rotl8(q, 2) ^ rotl8(q, 3) ^ rotl8(q, 4) ^ 0x63;
+    } while (p !== 1);
+    SBOX[0] = 0x63;
+    for (let i = 0; i < 256; i++) INV_SBOX[SBOX[i]] = i;
+  })();
+
+  function expandKey(key) {
+    const nk = key.length / 4, rounds = nk + 6, words = 4 * (rounds + 1);
+    const w = new Uint8Array(words * 4);
+    w.set(key);
+    let rcon = 1;
+    for (let i = nk; i < words; i++) {
+      let t0 = w[4 * i - 4], t1 = w[4 * i - 3], t2 = w[4 * i - 2], t3 = w[4 * i - 1];
+      if (i % nk === 0) {
+        const first = t0;
+        t0 = SBOX[t1] ^ rcon; t1 = SBOX[t2]; t2 = SBOX[t3]; t3 = SBOX[first];
+        rcon = xtime(rcon);
+      } else if (nk > 6 && i % nk === 4) {
+        t0 = SBOX[t0]; t1 = SBOX[t1]; t2 = SBOX[t2]; t3 = SBOX[t3];
+      }
+      const j = 4 * (i - nk);
+      w[4 * i] = w[j] ^ t0; w[4 * i + 1] = w[j + 1] ^ t1; w[4 * i + 2] = w[j + 2] ^ t2; w[4 * i + 3] = w[j + 3] ^ t3;
+    }
+    return { w, rounds };
+  }
+
+  const addRoundKey = (s, w, round) => { for (let i = 0; i < 16; i++) s[i] ^= w[16 * round + i]; };
+  const subBytes = (s, box) => { for (let i = 0; i < 16; i++) s[i] = box[s[i]]; };
+  function shiftRows(s, inverse) {
+    for (let r = 1; r < 4; r++) {
+      const row = [s[r], s[r + 4], s[r + 8], s[r + 12]];
+      for (let c = 0; c < 4; c++) s[r + 4 * c] = row[(c + (inverse ? 4 - r : r)) % 4];
+    }
+  }
+  function mixColumns(s, inverse) {
+    const m = inverse ? [14, 11, 13, 9] : [2, 3, 1, 1];
+    for (let c = 0; c < 4; c++) {
+      const a = s.slice(4 * c, 4 * c + 4);
+      for (let r = 0; r < 4; r++) {
+        s[4 * c + r] = mul(a[r], m[0]) ^ mul(a[(r + 1) % 4], m[1]) ^ mul(a[(r + 2) % 4], m[2]) ^ mul(a[(r + 3) % 4], m[3]);
+      }
+    }
+  }
+  function aesEncryptBlock(block, { w, rounds }) {
+    const s = Uint8Array.from(block);
+    addRoundKey(s, w, 0);
+    for (let round = 1; round < rounds; round++) {
+      subBytes(s, SBOX); shiftRows(s, false); mixColumns(s, false); addRoundKey(s, w, round);
+    }
+    subBytes(s, SBOX); shiftRows(s, false); addRoundKey(s, w, rounds);
+    return s;
+  }
+  function aesDecryptBlock(block, { w, rounds }) {
+    const s = Uint8Array.from(block);
+    addRoundKey(s, w, rounds);
+    for (let round = rounds - 1; round > 0; round--) {
+      shiftRows(s, true); subBytes(s, INV_SBOX); addRoundKey(s, w, round); mixColumns(s, true);
+    }
+    shiftRows(s, true); subBytes(s, INV_SBOX); addRoundKey(s, w, 0);
+    return s;
+  }
+  function aes(key) {
+    const ks = expandKey(key);
+    return { blockSize: 16, encrypt: b => aesEncryptBlock(b, ks), decrypt: b => aesDecryptBlock(b, ks) };
+  }
+
+  // ---------- DES / DESede (FIPS 46-3 tables) ----------
+  const IP = [58, 50, 42, 34, 26, 18, 10, 2, 60, 52, 44, 36, 28, 20, 12, 4, 62, 54, 46, 38, 30, 22, 14, 6, 64, 56, 48, 40, 32, 24, 16, 8,
+              57, 49, 41, 33, 25, 17, 9, 1, 59, 51, 43, 35, 27, 19, 11, 3, 61, 53, 45, 37, 29, 21, 13, 5, 63, 55, 47, 39, 31, 23, 15, 7];
+  const FP = [40, 8, 48, 16, 56, 24, 64, 32, 39, 7, 47, 15, 55, 23, 63, 31, 38, 6, 46, 14, 54, 22, 62, 30, 37, 5, 45, 13, 53, 21, 61, 29,
+              36, 4, 44, 12, 52, 20, 60, 28, 35, 3, 43, 11, 51, 19, 59, 27, 34, 2, 42, 10, 50, 18, 58, 26, 33, 1, 41, 9, 49, 17, 57, 25];
+  const E = [32, 1, 2, 3, 4, 5, 4, 5, 6, 7, 8, 9, 8, 9, 10, 11, 12, 13, 12, 13, 14, 15, 16, 17,
+             16, 17, 18, 19, 20, 21, 20, 21, 22, 23, 24, 25, 24, 25, 26, 27, 28, 29, 28, 29, 30, 31, 32, 1];
+  const P = [16, 7, 20, 21, 29, 12, 28, 17, 1, 15, 23, 26, 5, 18, 31, 10, 2, 8, 24, 14, 32, 27, 3, 9, 19, 13, 30, 6, 22, 11, 4, 25];
+  const PC1 = [57, 49, 41, 33, 25, 17, 9, 1, 58, 50, 42, 34, 26, 18, 10, 2, 59, 51, 43, 35, 27, 19, 11, 3, 60, 52, 44, 36,
+               63, 55, 47, 39, 31, 23, 15, 7, 62, 54, 46, 38, 30, 22, 14, 6, 61, 53, 45, 37, 29, 21, 13, 5, 28, 20, 12, 4];
+  const PC2 = [14, 17, 11, 24, 1, 5, 3, 28, 15, 6, 21, 10, 23, 19, 12, 4, 26, 8, 16, 7, 27, 20, 13, 2,
+               41, 52, 31, 37, 47, 55, 30, 40, 51, 45, 33, 48, 44, 49, 39, 56, 34, 53, 46, 42, 50, 36, 29, 32];
+  const SHIFTS = [1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1];
+  const DES_SBOX = [
+    [14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7, 0, 15, 7, 4, 14, 2, 13, 1, 10, 6, 12, 11, 9, 5, 3, 8,
+     4, 1, 14, 8, 13, 6, 2, 11, 15, 12, 9, 7, 3, 10, 5, 0, 15, 12, 8, 2, 4, 9, 1, 7, 5, 11, 3, 14, 10, 0, 6, 13],
+    [15, 1, 8, 14, 6, 11, 3, 4, 9, 7, 2, 13, 12, 0, 5, 10, 3, 13, 4, 7, 15, 2, 8, 14, 12, 0, 1, 10, 6, 9, 11, 5,
+     0, 14, 7, 11, 10, 4, 13, 1, 5, 8, 12, 6, 9, 3, 2, 15, 13, 8, 10, 1, 3, 15, 4, 2, 11, 6, 7, 12, 0, 5, 14, 9],
+    [10, 0, 9, 14, 6, 3, 15, 5, 1, 13, 12, 7, 11, 4, 2, 8, 13, 7, 0, 9, 3, 4, 6, 10, 2, 8, 5, 14, 12, 11, 15, 1,
+     13, 6, 4, 9, 8, 15, 3, 0, 11, 1, 2, 12, 5, 10, 14, 7, 1, 10, 13, 0, 6, 9, 8, 7, 4, 15, 14, 3, 11, 5, 2, 12],
+    [7, 13, 14, 3, 0, 6, 9, 10, 1, 2, 8, 5, 11, 12, 4, 15, 13, 8, 11, 5, 6, 15, 0, 3, 4, 7, 2, 12, 1, 10, 14, 9,
+     10, 6, 9, 0, 12, 11, 7, 13, 15, 1, 3, 14, 5, 2, 8, 4, 3, 15, 0, 6, 10, 1, 13, 8, 9, 4, 5, 11, 12, 7, 2, 14],
+    [2, 12, 4, 1, 7, 10, 11, 6, 8, 5, 3, 15, 13, 0, 14, 9, 14, 11, 2, 12, 4, 7, 13, 1, 5, 0, 15, 10, 3, 9, 8, 6,
+     4, 2, 1, 11, 10, 13, 7, 8, 15, 9, 12, 5, 6, 3, 0, 14, 11, 8, 12, 7, 1, 14, 2, 13, 6, 15, 0, 9, 10, 4, 5, 3],
+    [12, 1, 10, 15, 9, 2, 6, 8, 0, 13, 3, 4, 14, 7, 5, 11, 10, 15, 4, 2, 7, 12, 9, 5, 6, 1, 13, 14, 0, 11, 3, 8,
+     9, 14, 15, 5, 2, 8, 12, 3, 7, 0, 4, 10, 1, 13, 11, 6, 4, 3, 2, 12, 9, 5, 15, 10, 11, 14, 1, 7, 6, 0, 8, 13],
+    [4, 11, 2, 14, 15, 0, 8, 13, 3, 12, 9, 7, 5, 10, 6, 1, 13, 0, 11, 7, 4, 9, 1, 10, 14, 3, 5, 12, 2, 15, 8, 6,
+     1, 4, 11, 13, 12, 3, 7, 14, 10, 15, 6, 8, 0, 5, 9, 2, 6, 11, 13, 8, 1, 4, 10, 7, 9, 5, 0, 15, 14, 2, 3, 12],
+    [13, 2, 8, 4, 6, 15, 11, 1, 10, 9, 3, 14, 5, 0, 12, 7, 1, 15, 13, 8, 10, 3, 7, 4, 12, 5, 6, 11, 0, 14, 9, 2,
+     7, 11, 4, 1, 9, 12, 14, 2, 0, 6, 10, 13, 15, 3, 5, 8, 2, 1, 14, 7, 4, 10, 8, 13, 15, 12, 9, 0, 3, 5, 6, 11]
+  ];
+  const permute = (bits, table) => table.map(i => bits[i - 1]);
+  const toBits = bytes => { const bits = []; for (const b of bytes) for (let i = 7; i >= 0; i--) bits.push((b >> i) & 1); return bits; };
+  const fromBits = bits => { const out = new Uint8Array(bits.length / 8); bits.forEach((b, i) => { out[i >> 3] |= b << (7 - (i & 7)); }); return out; };
+
+  function desSubkeys(key8) {
+    const k = permute(toBits(key8), PC1);
+    let c = k.slice(0, 28), d = k.slice(28);
+    return SHIFTS.map(s => {
+      c = c.slice(s).concat(c.slice(0, s));
+      d = d.slice(s).concat(d.slice(0, s));
+      return permute(c.concat(d), PC2);
+    });
+  }
+  function desBlock(block, subkeys, decrypt) {
+    const bits = permute(toBits(block), IP);
+    let l = bits.slice(0, 32), r = bits.slice(32);
+    for (let round = 0; round < 16; round++) {
+      const k = subkeys[decrypt ? 15 - round : round];
+      const e = permute(r, E).map((b, i) => b ^ k[i]);
+      const s = [];
+      for (let box = 0; box < 8; box++) {
+        const x = e.slice(6 * box, 6 * box + 6);
+        const v = DES_SBOX[box][((x[0] << 1) | x[5]) * 16 + ((x[1] << 3) | (x[2] << 2) | (x[3] << 1) | x[4])];
+        s.push((v >> 3) & 1, (v >> 2) & 1, (v >> 1) & 1, v & 1);
+      }
+      const f = permute(s, P);
+      const next = l.map((b, i) => b ^ f[i]);
+      l = r;
+      r = next;
+    }
+    return fromBits(permute(r.concat(l), FP));
+  }
+  function des(key) {
+    const k = desSubkeys(key);
+    return { blockSize: 8, encrypt: b => desBlock(b, k, false), decrypt: b => desBlock(b, k, true) };
+  }
+  function desede(key) {
+    const k1 = desSubkeys(key.subarray(0, 8)), k2 = desSubkeys(key.subarray(8, 16)), k3 = desSubkeys(key.subarray(16, 24));
+    return {
+      blockSize: 8,
+      encrypt: b => desBlock(desBlock(desBlock(b, k1, false), k2, true), k3, false),
+      decrypt: b => desBlock(desBlock(desBlock(b, k3, true), k2, false), k1, true)
+    };
+  }
+
+  // ---------- Blowfish (initial P-array and S-boxes: hex digits of pi) ----------
+  const BF_TABLES = "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";
+  let bfInit = null;
+  function blowfishInit() {
+    if (!bfInit) {
+      const bytes = fromBase64(BF_TABLES);
+      bfInit = new Uint32Array(1042);
+      for (let i = 0; i < 1042; i++) {
+        bfInit[i] = ((bytes[4 * i] << 24) | (bytes[4 * i + 1] << 16) | (bytes[4 * i + 2] << 8) | bytes[4 * i + 3]) >>> 0;
+      }
+    }
+    return bfInit;
+  }
+  function blowfish(key) {
+    const init = blowfishInit();
+    const p = init.slice(0, 18);
+    const s = [init.slice(18, 274), init.slice(274, 530), init.slice(530, 786), init.slice(786, 1042)];
+    const f = x => ((((s[0][x >>> 24] + s[1][(x >>> 16) & 255]) >>> 0) ^ s[2][(x >>> 8) & 255]) + s[3][x & 255]) >>> 0;
+    function enc(l, r) {
+      for (let i = 0; i < 16; i++) {
+        l = (l ^ p[i]) >>> 0;
+        r = (r ^ f(l)) >>> 0;
+        [l, r] = [r, l];
+      }
+      [l, r] = [r, l];
+      return [(l ^ p[17]) >>> 0, (r ^ p[16]) >>> 0];
+    }
+    function dec(l, r) {
+      for (let i = 17; i > 1; i--) {
+        l = (l ^ p[i]) >>> 0;
+        r = (r ^ f(l)) >>> 0;
+        [l, r] = [r, l];
+      }
+      [l, r] = [r, l];
+      return [(l ^ p[0]) >>> 0, (r ^ p[1]) >>> 0];
+    }
+    let j = 0;
+    for (let i = 0; i < 18; i++) {
+      let data = 0;
+      for (let n = 0; n < 4; n++) { data = ((data << 8) | key[j]) >>> 0; j = (j + 1) % key.length; }
+      p[i] = (p[i] ^ data) >>> 0;
+    }
+    let l = 0, r = 0;
+    for (let i = 0; i < 18; i += 2) { [l, r] = enc(l, r); p[i] = l; p[i + 1] = r; }
+    for (let box = 0; box < 4; box++) {
+      for (let i = 0; i < 256; i += 2) { [l, r] = enc(l, r); s[box][i] = l; s[box][i + 1] = r; }
+    }
+    const words = b => [((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]) >>> 0, ((b[4] << 24) | (b[5] << 16) | (b[6] << 8) | b[7]) >>> 0];
+    const bytes = ([hi, lo]) => Uint8Array.of(hi >>> 24, hi >>> 16, hi >>> 8, hi, lo >>> 24, lo >>> 16, lo >>> 8, lo);
+    return { blockSize: 8, encrypt: b => bytes(enc(...words(b))), decrypt: b => bytes(dec(...words(b))) };
+  }
+
+  // ---------- Mule wiring ----------
+  const ALGORITHMS = {
+    AES: { create: aes, sizes: [16, 24, 32], rule: "exactly 16, 24 or 32 characters" },
+    Blowfish: { create: blowfish, min: 1, max: 56, rule: "1 to 56 characters" },
+    DES: { create: des, sizes: [8], rule: "exactly 8 characters" },
+    DESede: { create: desede, sizes: [24], rule: "exactly 24 characters" }
+  };
+  const MODES = ["CBC", "CFB", "ECB", "OFB"];
+
+  function keyFits(length, alg) {
+    const spec = ALGORITHMS[alg];
+    return spec.sizes ? spec.sizes.includes(length) : length >= spec.min && length <= spec.max;
+  }
+
+  function setup(key, alg, mode) {
+    const spec = ALGORITHMS[alg];
+    if (!spec) throw new Error("Unknown algorithm: " + alg);
+    if (!MODES.includes(mode)) throw new Error("Unknown mode: " + mode);
+    if (!key) throw new Error("Enter the key");
+    const k = new TextEncoder().encode(key);
+    if (!keyFits(k.length, alg)) throw new Error("The " + alg + " key must be " + spec.rule + ", this one has " + k.length);
+    const cipher = spec.create(k);
+    const iv = new Uint8Array(cipher.blockSize);
+    iv.set(k.subarray(0, cipher.blockSize));
+    return { cipher, iv };
+  }
+
+  function crypt(cipher, iv, data, mode, encrypting) {
+    const out = new Uint8Array(data.length);
+    let feed = iv;
+    for (let off = 0; off < data.length; off += cipher.blockSize) {
+      const block = data.subarray(off, off + cipher.blockSize);
+      let result;
+      if (mode === "ECB") {
+        result = encrypting ? cipher.encrypt(block) : cipher.decrypt(block);
+      } else if (mode === "CBC") {
+        if (encrypting) { result = cipher.encrypt(xor(block, feed)); feed = result; }
+        else { result = xor(cipher.decrypt(block), feed); feed = block; }
+      } else if (mode === "CFB") {
+        result = xor(block, cipher.encrypt(feed));
+        feed = encrypting ? result : block;
+      } else {
+        feed = cipher.encrypt(feed);
+        result = xor(block, feed);
+      }
+      out.set(result, off);
+    }
+    return out;
+  }
+
+  function pad(data, size) {
+    const n = size - (data.length % size);
+    const out = new Uint8Array(data.length + n);
+    out.set(data);
+    out.fill(n, data.length);
+    return out;
+  }
+
+  function unpad(data, size) {
+    const n = data[data.length - 1];
+    if (n < 1 || n > size) throw new Error("bad padding");
+    for (let i = data.length - n; i < data.length; i++) if (data[i] !== n) throw new Error("bad padding");
+    return data.subarray(0, data.length - n);
+  }
+
+  function encrypt(value, key, alg = "AES", mode = "CBC") {
+    const { cipher, iv } = setup(key, alg, mode);
+    const data = pad(new TextEncoder().encode(value), cipher.blockSize);
+    return "![" + toBase64(crypt(cipher, iv, data, mode, true)) + "]";
+  }
+
+  function decrypt(input, key, alg = "AES", mode = "CBC") {
+    const { cipher, iv } = setup(key, alg, mode);
+    const wrapped = String(input).match(/!\[([^\]]*)\]/);
+    const b64 = (wrapped ? wrapped[1] : String(input)).replace(/["'\s]/g, "");
+    if (!b64) throw new Error("Paste the encrypted value");
+    let data;
+    try { data = fromBase64(b64); } catch (e) { throw new Error("That is not Base64, check the value"); }
+    if (data.length === 0 || data.length % cipher.blockSize !== 0) {
+      throw new Error("Ciphertext length is not a multiple of the " + alg + " block (" + cipher.blockSize + " bytes): the value is cut off, or the algorithm is wrong");
+    }
+    let plain;
+    try { plain = unpad(crypt(cipher, iv, data, mode, false), cipher.blockSize); } catch (e) {
+      throw new Error("Cannot decrypt: the key, algorithm or mode does not match (or the value is damaged)");
+    }
+    return new TextDecoder("utf-8").decode(plain);
+  }
+
+  const keyRule = alg => ALGORITHMS[alg].rule;
+
+  return { encrypt, decrypt, keyFits, keyRule, _test: { SBOX, expandKey, aes, des, desede, blowfish } };
+})();
+// CRYPTO-END
+
+const $ = id => document.getElementById(id);
+
+function setStatus(id, text, kind) {
+  const el = $(id);
+  el.textContent = text || "";
+  el.className = "status" + (kind ? " " + kind : "");
+}
+
+function showKeyInfo() {
+  const key = $("key").value, alg = $("alg").value;
+  if (!key) return setStatus("keyStatus", alg + ": " + MuleSecure.keyRule(alg));
+  const n = new TextEncoder().encode(key).length;
+  const ok = MuleSecure.keyFits(n, alg);
+  let text = n + " bytes" + (ok ? ", fits " + alg : ", but " + alg + " needs " + MuleSecure.keyRule(alg));
+  if (key !== key.trim()) text += ". Careful: the key starts or ends with a space";
+  setStatus("keyStatus", text, ok && key === key.trim() ? "ok" : "err");
+}
+
+function doEncrypt() {
+  $("encOut").value = "";
+  try {
+    const value = $("plain").value;
+    if (!value) throw new Error("Enter a value");
+    $("encOut").value = MuleSecure.encrypt(value, $("key").value, $("alg").value, $("mode").value);
+    const spaces = value !== value.trim();
+    setStatus("encStatus", spaces ? "Done. Careful: the leading or trailing spaces are encrypted too" : "Done", spaces ? "err" : "ok");
+  } catch (e) {
+    setStatus("encStatus", e.message, "err");
+  }
+}
+
+function doDecrypt() {
+  $("decOut").value = "";
+  try {
+    const text = MuleSecure.decrypt($("cipher").value, $("key").value, $("alg").value, $("mode").value);
+    $("decOut").value = text;
+    const readable = ![...text].some(ch => { const c = ch.codePointAt(0); return c < 32 || c === 127 || c === 65533; });
+    setStatus("decStatus", readable ? "Decrypted, the key fits"
+                                    : "Decrypted, but the result looks like garbage: the key is probably wrong", readable ? "ok" : "err");
+  } catch (e) {
+    setStatus("decStatus", e.message, "err");
+  }
+}
+
+async function copyValue(fieldId, statusId) {
+  const field = $(fieldId);
+  if (!field.value) return;
+  try {
+    await navigator.clipboard.writeText(field.value);
+  } catch (e) {
+    field.select();
+    document.execCommand("copy");
+  }
+  setStatus(statusId, "Copied", "ok");
+}
+
+$("key").addEventListener("input", showKeyInfo);
+$("alg").addEventListener("change", showKeyInfo);
+$("toggleKey").addEventListener("click", () => {
+  const hidden = $("key").type === "password";
+  $("key").type = hidden ? "text" : "password";
+  $("toggleKey").textContent = hidden ? "Hide" : "Show";
+});
+$("encrypt").addEventListener("click", doEncrypt);
+$("decrypt").addEventListener("click", doDecrypt);
+$("plain").addEventListener("keydown", e => { if (e.key === "Enter") doEncrypt(); });
+$("cipher").addEventListener("keydown", e => { if (e.key === "Enter") doDecrypt(); });
+$("copyEnc").addEventListener("click", () => copyValue("encOut", "encStatus"));
+$("copyDec").addEventListener("click", () => copyValue("decOut", "decStatus"));
+showKeyInfo();
+</script>
+</body>
+</html>

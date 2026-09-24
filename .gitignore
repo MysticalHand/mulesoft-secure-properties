@@ -1,0 +1,4 @@
+node_modules/
+*.jar
+.DS_Store
+Thumbs.db

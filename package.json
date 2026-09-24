@@ -1,0 +1,10 @@
+{
+  "name": "mulesoft-secure-properties",
+  "version": "1.0.0",
+  "description": "Encrypt and decrypt MuleSoft secure properties (![...] values) in the browser",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test": "node test/test.js"
+  }
+}
