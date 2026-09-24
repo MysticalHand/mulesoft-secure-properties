@@ -3,6 +3,8 @@
 Encrypt and decrypt MuleSoft secure properties (`![...]` values) in your browser. One HTML file: no install, no
 dependencies, works offline.
 
+**Use it online:** https://mysticalhand.github.io/mulesoft-secure-properties/
+
 It produces exactly what Mule's `<secure-properties:config>` reads, so you can:
 
 - encrypt a new password, token, or client secret and paste it into your `secure-*.yaml`;
@@ -12,7 +14,8 @@ It produces exactly what Mule's `<secure-properties:config>` reads, so you can:
 
 ## Usage
 
-Download [`index.html`](index.html) and open it in any browser.
+Open the [online version](https://mysticalhand.github.io/mulesoft-secure-properties/), or download
+[`index.html`](index.html) and open it in any browser.
 
 1. Enter the key: the value passed to `key="${...}"` of your `<secure-properties:config>`.
 2. If your config sets `algorithm` or `mode`, choose the same ones. Otherwise keep the defaults, AES and CBC.
@@ -49,7 +52,7 @@ Twofish, RSA and others).
 ## Security
 
 - Everything runs in the browser. The page makes no network requests and stores nothing: no cookies, no local
-  storage.
+  storage. Its Content-Security-Policy blocks all network access, so nothing you type can leave the page.
 - With production keys, prefer your own local copy of `index.html` over a copy hosted somewhere else.
 - Anyone who has the key can decrypt every value in the file. Keep it out of the repository and the application
   package, and pass it as a protected deployment property.
